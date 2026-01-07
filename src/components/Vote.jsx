@@ -1,73 +1,131 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
-function Vote({ setShowResult }) {
+function Vote({ setPage }) {
+  const [candidates, setCandidates] = useState([]);
   const [selected, setSelected] = useState("");
-  const [voted, setVoted] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [showAlreadyVotedMsg, setShowAlreadyVotedMsg] = useState(false);
+  const [electionStatus, setElectionStatus] = useState("CLOSED");
 
-  const candidates = ["Candidate A", "Candidate B", "Candidate C"];
+  const currentUser = localStorage.getItem("currentUser");
+
+  useEffect(() => {
+    // Load candidates added by admin
+    const storedCandidates =
+      JSON.parse(localStorage.getItem("candidates")) || [];
+    setCandidates(storedCandidates);
+
+    // Load election status
+    setElectionStatus(localStorage.getItem("electionStatus") || "CLOSED");
+
+    // Check if user already voted (ONLY FLAG, NO MESSAGE)
+    const votedUsers =
+      JSON.parse(localStorage.getItem("votedUsers")) || [];
+    if (votedUsers.includes(currentUser)) {
+      setHasVoted(true);
+    }
+  }, [currentUser]);
 
   const handleVote = () => {
+    // Election closed check
+    if (electionStatus !== "OPEN") {
+      alert("❌ Election is not active");
+      return;
+    }
+
+    // Already voted → show message ONLY on click
+    if (hasVoted) {
+      setShowAlreadyVotedMsg(true);
+      return;
+    }
+
+    // No candidate selected
     if (!selected) {
-      alert("Please select a candidate");
+      alert("⚠️ Please select a candidate");
       return;
     }
 
-    const votedUsers = JSON.parse(localStorage.getItem("votedUsers")) || [];
-    const currentUser = localStorage.getItem("currentUser");
-
-    if (votedUsers.includes(currentUser)) {
-      alert("You have already voted!");
-      setVoted(true);
-      return;
-    }
-
+    // Mark user as voted
+    const votedUsers =
+      JSON.parse(localStorage.getItem("votedUsers")) || [];
     votedUsers.push(currentUser);
     localStorage.setItem("votedUsers", JSON.stringify(votedUsers));
 
-    const votes = JSON.parse(localStorage.getItem("votes")) || {};
-    votes[selected] = (votes[selected] || 0) + 1;
-    localStorage.setItem("votes", JSON.stringify(votes));
+    // Update candidate votes
+    const updatedCandidates = candidates.map((c) =>
+      c.name === selected ? { ...c, votes: c.votes + 1 } : c
+    );
+    localStorage.setItem(
+      "candidates",
+      JSON.stringify(updatedCandidates)
+    );
+
+    setCandidates(updatedCandidates);
+    setHasVoted(true);
 
     alert("✅ Vote submitted successfully");
-    setVoted(true);
+
+    // Optional: logout after vote
+    localStorage.removeItem("currentUser");
+    setPage("home");
   };
 
   return (
     <div className="vote-wrapper">
       <h2>🗳️ Cast Your Vote</h2>
 
-      {!voted ? (
-        <>
-          <div className="candidate-list">
-            {candidates.map((c, index) => (
-              <div
-                key={index}
-                className={`candidate-card ${
-                  selected === c ? "selected" : ""
-                }`}
-                onClick={() => setSelected(c)}
-              >
-                <input type="radio" checked={selected === c} readOnly />
-                <span>{c}</span>
-              </div>
-            ))}
-          </div>
+      <p className="vote-subtitle">
+        Election Status:{" "}
+        <strong
+          style={{
+            color: electionStatus === "OPEN" ? "green" : "red",
+          }}
+        >
+          {electionStatus}
+        </strong>
+      </p>
 
-          <button className="vote-btn" onClick={handleVote} disabled={voted}>
-            Submit Vote
-          </button>
-        </>
-      ) : (
-        <>
-          <h3>✅ Vote Completed</h3>
-          <button
-            className="vote-btn"
-            onClick={() => setShowResult(true)}
-          >
-            View Result
-          </button>
-        </>
+      {/* Message ONLY after clicking submit again */}
+      {showAlreadyVotedMsg && (
+        <p style={{ color: "red", marginBottom: "15px" }}>
+          ❌ You have already voted
+        </p>
       )}
+
+      <div className="candidate-list">
+        {candidates.length === 0 && (
+          <p>No candidates available</p>
+        )}
+
+        {candidates.map((c, index) => (
+          <div
+            key={index}
+            className={`candidate-card ${
+              selected === c.name ? "selected" : ""
+            }`}
+            onClick={() => {
+              if (!hasVoted) setSelected(c.name);
+            }}
+          >
+            <input
+              type="radio"
+              checked={selected === c.name}
+              readOnly
+            />
+            <span>{c.name}</span>
+          </div>
+        ))}
+      </div>
+
+      <button
+        className="vote-btn"
+        onClick={handleVote}
+        style={{
+          opacity: electionStatus !== "OPEN" ? 0.6 : 1,
+        }}
+      >
+        Submit Vote
+      </button>
     </div>
   );
 }

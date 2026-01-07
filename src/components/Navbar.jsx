@@ -11,6 +11,8 @@ function Navbar({ setPage }) {
         <li onClick={() => setPage("home")}>Home</li>
         <li onClick={() => setPage("register")}>Register</li>
         <li onClick={() => setPage("login")}>Login</li>
+        <li onClick={() => setPage("admin")}>Admin</li>
+
       </ul>
     </nav>
   );
